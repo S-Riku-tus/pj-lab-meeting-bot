@@ -1,7 +1,12 @@
+# main.py
 import os
 import sys
 from flask import Flask, request, Response
-from src import bot, commands
+from src import bot, commands, database
+from dotenv import load_dotenv
+
+load_dotenv()  # .envファイルから環境変数を読み込む
+
 
 app = Flask(__name__)
 
@@ -24,8 +29,17 @@ def slack_events():
     
     return Response(), 200
 
+# アプリケーション初期化
+def init_app():
+    """アプリケーションを初期化する"""
+    # データベースの初期化
+    database.init_database()
+
 # メイン関数 - GitHub Actionsから呼び出される
 if __name__ == "__main__":
+    # アプリケーション初期化
+    init_app()
+    
     # コマンドライン引数確認
     if len(sys.argv) > 1 and sys.argv[1] == "send_reminder":
         bot.send_reminder()
