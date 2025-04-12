@@ -1,5 +1,6 @@
+# src/commands.py
 import re
-from . import storage
+from . import database
 from . import bot
 
 def handle_mention(event):
@@ -7,7 +8,7 @@ def handle_mention(event):
     text = event.get("text", "")
     channel = event.get("channel")
     
-    meeting_data = storage.load_meeting_data()
+    meeting_data = database.load_meeting_data()
     
     # 発表者変更
     if "発表者変更" in text or "発表者を変更" in text:
@@ -51,8 +52,7 @@ def change_presenters(text, meeting_data):
             presenters = parts[2:]
     
     if presenters:
-        meeting_data["presenters"] = presenters
-        storage.save_meeting_data(meeting_data)
+        database.update_presenters(presenters)
         return f"発表者を変更しました: {', '.join(presenters)}"
     else:
         return "発表者を指定してください。例: @ミーティングボット 発表者変更 「田中」「鈴木」"
@@ -62,8 +62,7 @@ def change_time(text, meeting_data):
     time_match = re.search(r'(\d{1,2}:\d{2})', text)
     if time_match:
         new_time = time_match.group(1)
-        meeting_data["meeting_time"] = new_time
-        storage.save_meeting_data(meeting_data)
+        database.update_setting("meeting_time", new_time)
         return f"ミーティング時間を {new_time} に変更しました"
     else:
         return "新しい時間を指定してください。例: @ミーティングボット 時間変更 14:30"
@@ -73,14 +72,13 @@ def change_day(text, meeting_data):
     days = ["月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日", "日曜日"]
     for day in days:
         if day in text:
-            meeting_data["meeting_day"] = day
-            storage.save_meeting_data(meeting_data)
+            database.update_setting("meeting_day", day)
             return f"ミーティング曜日を {day} に変更しました"
     return "新しい曜日を指定してください。例: @ミーティングボット 曜日変更 水曜日"
 
 def add_schedule(text, meeting_data):
     """特定の日程を追加する"""
-    date = storage.parse_date(text)
+    date = database.parse_date(text)
     time_match = re.search(r'(\d{1,2}:\d{2})', text)
     presenters = re.findall(r'「(.+?)」', text)
     
@@ -93,10 +91,9 @@ def add_schedule(text, meeting_data):
     
     if date and time_match:
         new_time = time_match.group(1)
-        is_new = storage.add_or_update_meeting(
-            meeting_data, date, new_time, presenters, presentation_type
+        is_new = database.add_or_update_meeting(
+            date, new_time, presenters, presentation_type
         )
-        storage.save_meeting_data(meeting_data)
         
         presenters_str = ", ".join(presenters) if presenters else "未定"
         action = "追加" if is_new else "更新"
@@ -106,7 +103,7 @@ def add_schedule(text, meeting_data):
 
 def check_status(meeting_data):
     """現在の設定状況を確認する"""
-    next_meeting = storage.get_next_meeting(meeting_data)
+    next_meeting = database.get_next_meeting()
     
     response_text = "*現在の設定*\n"
     response_text += f"定期ミーティング: 毎週{meeting_data['meeting_day']} {meeting_data['meeting_time']}\n"
@@ -114,10 +111,9 @@ def check_status(meeting_data):
     
     if meeting_data["next_meetings"]:
         response_text += "*今後の予定*:\n"
-        for meeting in sorted(meeting_data["next_meetings"], 
-                           key=lambda x: storage.datetime.datetime.strptime(x["date"], "%Y年%m月%d日")):
+        for meeting in meeting_data["next_meetings"]:
             presenters_str = ", ".join(meeting["presenters"]) if meeting["presenters"] else "未定"
-            p_type = meeting.get("presentation_type", "未指定")
+            p_type = meeting["presentation_type"]
             response_text += f"• {meeting['date']} {meeting['time']}: {presenters_str} ({p_type})\n"
     else:
         response_text += "今後の特別な予定はありません。"
@@ -128,11 +124,11 @@ def get_help_text():
     """ヘルプテキストを取得する"""
     return """
 *使い方*:
-• `@ミーティングボット 発表者変更 「名前1」「名前2」...`: 発表者を変更します
-• `@ミーティングボット 時間変更 15:30`: ミーティング時間を変更します
-• `@ミーティングボット 曜日変更 水曜日`: ミーティング曜日を変更します
-• `@ミーティングボット 日程追加 2025年4月15日 15:00 「名前1」「名前2」... 進捗報告`: 特定の日時の予定を追加します
+• @ミーティングボット 発表者変更 「名前1」「名前2」...: 発表者を変更します
+• @ミーティングボット 時間変更 15:30: ミーティング時間を変更します
+• @ミーティングボット 曜日変更 水曜日: ミーティング曜日を変更します
+• @ミーティングボット 日程追加 2025年4月15日 15:00 「名前1」「名前2」... 進捗報告: 特定の日時の予定を追加します
   - 発表タイプ: 進捗報告、論文輪講、技術共有、アイデア提案、その他
-• `@ミーティングボット 状況確認`: 現在の設定と今後の予定を表示します
-• `@ミーティングボット リマインド送信`: リマインドを手動で送信します
+• @ミーティングボット 状況確認: 現在の設定と今後の予定を表示します
+• @ミーティングボット リマインド送信: リマインドを手動で送信します
 """

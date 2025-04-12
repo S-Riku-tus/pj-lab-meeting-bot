@@ -1,8 +1,9 @@
+# src/bot.py
 import os
 import re
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
-from . import storage
+from . import database
 
 # Slack APIクライアント
 client = WebClient(token=os.environ.get("SLACK_BOT_TOKEN"))
@@ -13,21 +14,23 @@ PRESENTATION_TYPES = ["進捗報告", "論文輪講", "技術共有", "アイデ
 
 def send_reminder():
     """リマインダーメッセージを送信する"""
-    meeting_data = storage.load_meeting_data()
+    meeting_data = database.load_meeting_data()
     
     # 次回の会議情報を取得
-    next_meeting = storage.get_next_meeting(meeting_data)
+    next_meeting = database.get_next_meeting()
     
     if next_meeting:
-        meeting_date = next_meeting["date"]
-        meeting_time = next_meeting["time"]
+        meeting_date = next_meeting["meeting_date"]
+        meeting_time = next_meeting["meeting_time"]
         presenters = next_meeting["presenters"]
-        presentation_type = next_meeting.get("presentation_type", "未指定")
+        presentation_type = next_meeting["presentation_type"]
+        meeting_id = next_meeting["id"]
     else:
         meeting_date = f"次の{meeting_data['meeting_day']}"
         meeting_time = meeting_data["meeting_time"]
         presenters = meeting_data["presenters"]
         presentation_type = "未指定"
+        meeting_id = None
     
     # メッセージテキストの作成
     message = f"*研究室ミーティングのお知らせ*\n"
@@ -42,12 +45,14 @@ def send_reminder():
         message += "発表者は未定です。\n"
     
     # 今後の予定がある場合は追加
-    future_meetings = [m for m in meeting_data["next_meetings"] if m != next_meeting]
-    if future_meetings:
+    future_meetings = meeting_data["next_meetings"]
+    if len(future_meetings) > 1:  # 次回のミーティング以外にも予定がある場合
         message += "\n*今後の予定*:\n"
-        for meeting in future_meetings:
+        for i, meeting in enumerate(future_meetings):
+            if i == 0 and meeting_id:  # 次回のミーティングは既に上で表示済み
+                continue
             presenters_str = ", ".join(meeting["presenters"]) if meeting["presenters"] else "未定"
-            p_type = meeting.get("presentation_type", "未指定")
+            p_type = meeting["presentation_type"]
             message += f"• {meeting['date']} {meeting['time']}: {presenters_str} ({p_type})\n"
     
     try:
@@ -59,9 +64,8 @@ def send_reminder():
         print(f"メッセージ送信成功: {response['ts']}")
         
         # 使用済みの次回会議情報を削除
-        if next_meeting in meeting_data["next_meetings"]:
-            meeting_data["next_meetings"].remove(next_meeting)
-            storage.save_meeting_data(meeting_data)
+        if meeting_id:
+            database.delete_meeting(meeting_id)
             
     except SlackApiError as e:
         print(f"エラー: {e.response['error']}")
