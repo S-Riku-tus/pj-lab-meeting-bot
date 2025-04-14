@@ -7,15 +7,16 @@ on:
   workflow_dispatch:
     # 手動実行も可能に
 
-permissions:
-  contents: write
-
 jobs:
   send-reminder:
     runs-on: ubuntu-latest
     
     steps:
     - uses: actions/checkout@v2
+      with:
+        # 読み取り専用のアクセスを指定
+        persist-credentials: false
+        
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
