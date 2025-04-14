@@ -11,6 +11,12 @@ def handle_mention(event):
 
     meeting_data = database.load_meeting_data()
 
+    # 応答テキストの初期値として確認メッセージを設定
+    response_text = "コマンドを受け付けました。処理中..."
+
+    # 即座に応答を返す（受領確認）
+    initial_response = bot.post_response(channel, response_text)
+
     # 発表者変更
     if "発表者変更" in text or "発表者を変更" in text:
         response_text = change_presenters(text, meeting_data)
@@ -39,8 +45,9 @@ def handle_mention(event):
     # ヘルプ
     else:
         response_text = get_help_text()
-
-    bot.post_response(channel, response_text)
+    
+    # 処理完了後の結果を返信
+    bot.post_response(channel, f"✅ *処理完了*\n{response_text}")
 
 
 def change_presenters(text, meeting_data):
