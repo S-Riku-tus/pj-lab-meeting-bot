@@ -38,6 +38,7 @@ def init_app():
     """アプリケーションを初期化する"""
     # データベースの初期化
     database.init_database()
+    print("データベースを初期化しました")
 
 
 # メイン関数 - GitHub Actionsから呼び出される
@@ -47,7 +48,10 @@ if __name__ == "__main__":
 
     # コマンドライン引数確認
     if len(sys.argv) > 1 and sys.argv[1] == "send_reminder":
+        print("リマインド送信モードで実行します")
         bot.send_reminder(DEFAULT_CHANNEL, SLACK_BOT_TOKEN)
+        print("リマインド送信が完了しました")
     else:
         # 開発環境でのFlaskサーバー起動
+        print("Flaskサーバーを起動します (ポート:3000)")
         app.run(debug=True, port=3000)

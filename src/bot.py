@@ -1,10 +1,15 @@
 # src/bot.py
+import os
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from . import database
+from dotenv import load_dotenv
 
 # 発表タイプの定義
 PRESENTATION_TYPES = ["進捗報告", "論文輪講", "技術共有", "アイデア提案", "その他"]
+
+load_dotenv()  # .envファイルから環境変数を読み込む
+SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 
 
 def send_reminder(DEFAULT_CHANNEL, SLACK_BOT_TOKEN):
@@ -72,12 +77,14 @@ def send_reminder(DEFAULT_CHANNEL, SLACK_BOT_TOKEN):
 def post_response(channel, text):
     """Slackチャンネルにメッセージを送信する"""
     try:
-        client.chat_postMessage(
+        client = WebClient(token=SLACK_BOT_TOKEN)
+        response = client.chat_postMessage(
             channel=channel,
             text=text,
             mrkdwn=True
         )
-        return True
+        print(f"メッセージ送信成功: {response['ts']}")
+        return response
     except SlackApiError as e:
         print(f"エラー: {e.response['error']}")
-        return False
+        return None
